@@ -1,6 +1,6 @@
 // Get CANVAS
 const canvas = document.getElementById('canvas');
-// Note will be rescaled by CSS technically but
+// Note will be rescaled by CSS technically but worth doing here.
 canvas.width = document.documentElement.clientWidth // or .getBoundingClientRect().width;
 canvas.height = document.documentElement.clientHeight
 const ctx = canvas.getContext('2d'); // TODO: consider { alpha: true/false }
@@ -16,13 +16,10 @@ function drawStimRect(colour='white'){
 
 // Either need this - which maintains a nice square, or can allow for rectangles with CSS:
 window.onresize = (e) => {
-    console.log(e.type)
-    // TODO: is this necessary? keeps this square and on screen with size changes, but might make things higher res and so slower to render...?
+    console.log({type: e.type, timeStamp: e.timeStamp})
+    // Keeps square and in bounds but wipes stim...
     canvas.width = document.documentElement.clientWidth // or .getBoundingClientRect().width;
     canvas.height = document.documentElement.clientHeight
-    // // note preliminary sketch to check canvas draw
-    // toggleStim('clearRect','hide')
-    // toggleStim('clearRect','show')
 }
 
 function resetStimStyle(){
@@ -63,12 +60,11 @@ function toggleStim(method='clearRect', toggle='show'){
     }
 
     // browser styles recalculates, redoes the page layout and repaints
-    else if(method === 'hidden') {
-        if (toggle === 'show') canvas.hidden = false; //note same as style.display = 'none'
-        else if (toggle === 'hide') canvas.hidden = true;
-    } else if(method === 'display') { // Identical to canvas.hidden = true/false
+    else if(method === 'display') { // Identical to canvas.hidden = true/false, but can override the {display: 'block'} required in CSS
         if (toggle === 'show') canvas.style.display = 'block';
         else if (toggle === 'hide') canvas.style.display = 'none' // https://developer.mozilla.org/en-US/docs/Web/CSS/Reference/Properties/display#none
+    } else {
+        console.error('UNKNOWN Method ' + method)
     }
 }
 
