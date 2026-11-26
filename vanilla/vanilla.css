@@ -13,9 +13,8 @@ html, body {
     height: 100%;
 }
 
-#canvas {
-    position: absolute; /* Note: forces display: block*/
-    /*display: block; !* canvas defaults to display: inline which adds space below, makes page scroll*!*/
+.canvas {
+    position: absolute; /* Note: forces display: block, removing any bottom space from canvas with display: inline */
     background-color: black;
     /* Fullpage canvas*/
     width: 100%;
