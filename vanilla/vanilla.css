@@ -7,8 +7,15 @@ html, body {
     overflow: hidden;
 }
 
+#container {
+    position: relative;
+    width: 100%;
+    height: 100%;
+}
+
 #canvas {
-    display: block; /* canvas defaults to display: inline which adds space below, makes page scroll*/
+    position: absolute; /* Note: forces display: block*/
+    /*display: block; !* canvas defaults to display: inline which adds space below, makes page scroll*!*/
     background-color: black;
     /* Fullpage canvas*/
     width: 100%;
@@ -16,3 +23,9 @@ html, body {
     /* Make sure pinch-zoom is off on phones */
     touch-action: none;
 }
+
+/* Allow HTML hidden attribute to work despite display:block on canvas, which is needed to remove it's default display:inline */
+/*#canvas[hidden]{*/
+/*    !* Consider the rule from: https://html.spec.whatwg.org/multipage/rendering.html#hidden-elements *!*/
+/*    display: none;*/
+/*}*/
