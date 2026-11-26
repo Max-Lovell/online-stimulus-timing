@@ -48,14 +48,7 @@ function resetStimStyle(method){
     //  context settings need fresh canvas anyway
 
     // Note = '' removes any JS override and resets to specified CSS.
-    // Or shorthand with removeAttribute('style')
-    canvas.style.visibility = '';
-    canvas.style.opacity = '';
-    canvas.style.display = '';
-    canvas.style.contentVisibility = ''
-    canvas.style.left = '';
-    canvas.style.scale = ''
-    canvas.style.transform = ''
+    canvas.removeAttribute('style')
     canvas.hidden = false;
     if(methods.style.includes(method)) console.log(getComputedStyle(canvas)[method]) // TODO: record this.
 }
