@@ -22,9 +22,3 @@ html, body {
     /* Make sure pinch-zoom is off on phones */
     touch-action: none;
 }
-
-/* Allow HTML hidden attribute to work despite display:block on canvas, which is needed to remove it's default display:inline */
-/*#canvas[hidden]{*/
-/*    !* Consider the rule from: https://html.spec.whatwg.org/multipage/rendering.html#hidden-elements *!*/
-/*    display: none;*/
-/*}*/

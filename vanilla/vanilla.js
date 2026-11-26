@@ -3,6 +3,10 @@
 //  CSS transitions / Web Animations
 //  will-change: opacity (or transform)
 //  requestFullscreen
+//  Record useAgent and navigator.userAgentData.getHighEntropyValues(...) on chrome
+//  ordering, repetitions, jitter, timestamps, on method per page load, etc.
+//  run validations from runStimMethods(), and consider moving to typeScript.
+
 
 // Get CANVAS
 const container = document.getElementById('container');
@@ -33,13 +37,12 @@ function resetCanvas(methodName){
     //  After you've changed a canvas's opacity, Chrome may give it its own compositing layer and keep it that way.
     //  A canvas that has been display: none may have had its GPU resources released.
     //  context settings need fresh canvas anyway
-
-    // Note = '' removes any JS override and resets to specified CSS.
     canvas.removeAttribute('style')
     canvas.hidden = false;
     if(!canvas.isConnected) container.append(canvas); // Make sure canvas is connected - or container.contains(canvas) or container.children.length === 0
     resizeCanvas()
     ctx.clearRect(0, 0, canvas.width, canvas.height)
+    // TODO: forces a style recalculation so read in the gap, using a property field rather than the method name.
     // if(methodName && getComputedStyle(canvas)[methodName]) console.log('currentStyle: ', getComputedStyle(canvas)[methodName]) // TODO: record this.
 }
 
@@ -58,7 +61,7 @@ const displayMethods = {
         type: 'canvas',
         show: ()=> { drawStimRect() },
         hide: () => {
-            drawStimRect('black') // add border to avoid outline
+            drawStimRect('black')
         }
     },
 
@@ -84,7 +87,6 @@ const displayMethods = {
         }
     },
     'display': { // browser styles recalculates, redoes the page layout and repaints
-        // Identical to canvas.hidden = true/false, but can override the {display: 'block'} required in CSS
         name: 'display',
         type: 'style',
         show: () => {
@@ -94,7 +96,7 @@ const displayMethods = {
             canvas.style.display = 'none'
         } // https://developer.mozilla.org/en-US/docs/Web/CSS/Reference/Properties/display#none
     },
-    'hidden': { // Should be basically the same as display: 'none' - consider removing
+    'hidden': { // Should be basically the same as display: 'none'
         name: 'hidden',
         type: 'style',
         show: () => {
@@ -167,7 +169,7 @@ const displayMethods = {
         type: 'dom',
         show: () => {
             container.append(canvas)
-        }, // note appendChild on an already attached node moves it up.
+        }, // note appendChild on an already attached node moves it to end
         hide: () => {
             canvas.remove()
         } // or container.removeChild(canvas) - but could throw error
