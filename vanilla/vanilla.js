@@ -1,4 +1,4 @@
-// TODO: drawImage from a pre-rendered ImageBitmap; putImageData; Inserting/removing an element in the page
+// TODO: drawImage from a pre-rendered ImageBitmap; putImageData;
 //  alpha: false, desynchronized: true, WebGL clear
 //  CSS transitions / Web Animations
 //  will-change: opacity (or transform)
@@ -6,42 +6,29 @@
 
 // Get CANVAS
 const container = document.getElementById('container');
-let canvas = document.getElementById('canvas');
-// Note will be rescaled by CSS technically but worth doing here.
-canvas.width = document.documentElement.clientWidth // or .getBoundingClientRect().width;
-canvas.height = document.documentElement.clientHeight
-let ctx = canvas.getContext('2d'); // TODO: consider { alpha: true/false }
+const canvas = document.getElementById('canvas');
+const ctx = canvas.getContext('2d'); // TODO: consider { alpha: true/false }
+
+window.onresize = (e) => {
+    console.log({type: e.type, timeStamp: e.timeStamp})
+}
 
 // Drawing stim -------
 function drawStimRect(colour='white'){
     ctx.fillStyle = colour;
     const {width, height} = canvas;
-    const stimSize = Math.min(width, height)*.2; // 20% of canvas' smallest dimension
+    const stimSize = Math.round(Math.min(width, height)*.2); // 20% of canvas' smallest dimension, rounded to avoid aliasing
     ctx.fillRect(0, 0, stimSize, stimSize);
     ctx.fillRect(width-stimSize, height-stimSize, stimSize, stimSize);
 }
 
-function loadCanvas(){
-    if(!canvas.isConnected) container.append(canvas); // Make sure canvas is connected - or container.contains(canvas) or container.children.length === 0
-    if(canvas.width !== document.documentElement.clientWidth) canvas.width = document.documentElement.clientWidth // or .getBoundingClientRect().width;
-    if(canvas.height !== document.documentElement.clientHeight) canvas.height = document.documentElement.clientHeight
+function resizeCanvas(){
+    // Note: wipes stim, which will be rescaled by CSS anyway, but keeps square and in bounds...
+    if(canvas.width !== canvas.clientWidth) canvas.width = canvas.clientWidth // or .getBoundingClientRect().width or document.documentElement.clientWidth
+    if(canvas.height !== canvas.clientHeight) canvas.height = canvas.clientHeight
 }
 
-// Either need this - which maintains a nice square, or can allow for rectangles with CSS:
-window.onresize = (e) => {
-    console.log({type: e.type, timeStamp: e.timeStamp})
-    // Keeps square and in bounds but wipes stim...
-    canvas.width = document.documentElement.clientWidth // or .getBoundingClientRect().width;
-    canvas.height = document.documentElement.clientHeight
-}
-
-const methods = {
-    canvas: ['clearRect', 'fillRect'],
-    style: ['visibility', 'scale', 'opacity', 'display', 'hidden', 'contentVisibility', 'left', 'translate'],
-    dom: ['append']
-}
-
-function resetStimStyle(method){
+function resetCanvas(methodName){
     // TODO: Only page reload or new canvas actually resets - run each method in random block order with this
     //  After you've changed a canvas's opacity, Chrome may give it its own compositing layer and keep it that way.
     //  A canvas that has been display: none may have had its GPU resources released.
@@ -50,72 +37,139 @@ function resetStimStyle(method){
     // Note = '' removes any JS override and resets to specified CSS.
     canvas.removeAttribute('style')
     canvas.hidden = false;
-    if(methods.style.includes(method)) console.log(getComputedStyle(canvas)[method]) // TODO: record this.
+    if(!canvas.isConnected) container.append(canvas); // Make sure canvas is connected - or container.contains(canvas) or container.children.length === 0
+    resizeCanvas()
+    ctx.clearRect(0, 0, canvas.width, canvas.height)
+    // if(methodName && getComputedStyle(canvas)[methodName]) console.log('currentStyle: ', getComputedStyle(canvas)[methodName]) // TODO: record this.
 }
 
-function toggleStim(method='clearRect', toggle='show'){
-    // TODO: Style vs CANVAS methods separately
+const displayMethods = {
     // New CANVAS image sent to the screen
-    if(method === 'clearRect'){
-        if(toggle === 'show') drawStimRect()
-        else if(toggle === 'hide') ctx.clearRect(0, 0, canvas.width, canvas.height); // TODO: could just clear rect over drawn stim?
-    } else if(method === 'fillRect'){
-        if(toggle === 'show') drawStimRect()
-        else if(toggle === 'hide') drawStimRect('black') //canvas.style.backgroundColor
-    }
+    'clearRect': {
+        name: 'clearRect',
+        type: 'canvas',
+        show: ()=> { drawStimRect() }, // Wrap in arrow function to avoid passing show arguments to drawStimRect()
+        hide: () => {
+            ctx.clearRect(0, 0, canvas.width, canvas.height)
+        } // could clear over drawn stim area, but this seems more realistic
+    },
+    'fillRect': {
+        name: 'fillRect',
+        type: 'canvas',
+        show: ()=> { drawStimRect() },
+        hide: () => {
+            drawStimRect('black') // add border to avoid outline
+        }
+    },
 
-    // STYLE changes ----- note methods below require a pre-drawn stim, which might not suit a complex animation
+    // Style methods
+    'visibility': {
+        name: 'visibility',
+        type: 'style',
+        show: () => {
+            canvas.style.visibility = 'visible'
+        },
+        hide: () => {
+            canvas.style.visibility = 'hidden'
+        }
+    },
+    'opacity': { // often handled by compositor without repainting.
+        name: 'opacity',
+        type: 'style',
+        show: () => {
+            canvas.style.opacity = '1'
+        },
+        hide: () => {
+            canvas.style.opacity = '0'
+        }
+    },
+    'display': { // browser styles recalculates, redoes the page layout and repaints
+        // Identical to canvas.hidden = true/false, but can override the {display: 'block'} required in CSS
+        name: 'display',
+        type: 'style',
+        show: () => {
+            canvas.style.display = 'block'
+        },
+        hide: () => {
+            canvas.style.display = 'none'
+        } // https://developer.mozilla.org/en-US/docs/Web/CSS/Reference/Properties/display#none
+    },
+    'hidden': { // Should be basically the same as display: 'none' - consider removing
+        name: 'hidden',
+        type: 'style',
+        show: () => {
+            canvas.hidden = false
+        },
+        hide: () => {
+            canvas.hidden = true
+        }
+    },
+    'contentVisibility': {
+        name: 'contentVisibility',
+        type: 'style',
+        show: () => {
+            canvas.style.contentVisibility = 'visible'
+        },
+        hide: () => {
+            canvas.style.contentVisibility = 'hidden'
+        }
+    },
 
-    // Visibility/opacity
-    else if(method === 'visibility'){ // skips layout step, only repaints.
-        if (toggle === 'show') canvas.style.visibility = 'visible';
-        else if (toggle === 'hide') canvas.style.visibility = 'hidden';
-    } else if(method === 'opacity') { // often handled by compositor without repainting.
-        if (toggle === 'show') canvas.style.opacity = '1';
-        else if (toggle === 'hide') canvas.style.opacity = '0'
-    }
-
-    // browser styles recalculates, redoes the page layout and repaints
-    else if(method === 'display') { // Identical to canvas.hidden = true/false, but can override the {display: 'block'} required in CSS
-        if (toggle === 'show') canvas.style.display = 'block';
-        else if (toggle === 'hide') canvas.style.display = 'none' // https://developer.mozilla.org/en-US/docs/Web/CSS/Reference/Properties/display#none
-    } else if(method === 'hidden'){ // Should be same as display: 'none'
-        if (toggle === 'show') canvas.hidden = false;
-        else if (toggle === 'hide') canvas.hidden = true;
-    } else if(method === 'contentVisibility') {
-        if (toggle === 'show') canvas.style.contentVisibility = 'visible';
-        else if (toggle === 'hide') canvas.style.contentVisibility = 'hidden';
-    }
-
-    // Transforms
-    else if(method === 'left'){ // position
-        if (toggle === 'show') canvas.style.left = '0px';
-        else if (toggle === 'hide') canvas.style.left = `${canvas.width}px`;
-    } else if(method === 'translate') {
-        if (toggle === 'show') canvas.style.transform = `translateX(0px)`;
-        else if (toggle === 'hide') canvas.style.transform = `translateX(${canvas.width}px)`;
-    } else if(method === 'scale') {
-        if (toggle === 'show') canvas.style.scale = '1'; // or .transform = 'scaleX(0)';?
-        else if (toggle === 'hide') canvas.style.scale = '0';
-    }
+    // transforms
+    'left': {
+        name: 'left',
+        type: 'style',
+        show: () => {
+            canvas.style.left = '0'
+        },
+        hide: () => {
+            canvas.style.left = '100%'
+        }
+    },
+    'translate': {
+        name: 'translate',
+        type: 'style',
+        show: () => {
+            canvas.style.translate = `0%` // TODO: note applied before transform.translate and slightly different...
+        },
+        hide: () => {
+            canvas.style.translate = `100%`
+        }
+    },
+    'scale': {
+        name: 'scale',
+        type: 'style',
+        show: () => {
+            canvas.style.scale = '1' // TODO: note applied before transform.scale and slightly different...
+        },
+        hide: () => {
+            canvas.style.scale = '0'
+        },
+    },
 
     // DOM
-    else if(method === 'HTML') { // Options: innerHTML, insertAdjacentHTML
-        if (toggle === 'show') container.innerHTML = '<canvas id="canvas"></canvas>'
-        else if (toggle === 'hide') container.innerHTML = ''
-    } else if(method === 'append') { // options: appendChild/removeChild, append/remove, insertBefore, replaceChildren, insertAdjacentElement
-        if (toggle === 'show') {
+    'html': { // raw HTML insert
+        name: 'html', // Options: innerHTML, insertAdjacentHTML
+        type: 'dom',
+        show: () => {
+            container.innerHTML = '<canvas id="canvas"></canvas>'
+            const newCanvas = document.getElementById('canvas');
+            const newCtx = newCanvas.getContext('2d'); // TODO: consider { alpha: true/false }
             drawStimRect()
-            container.append(canvas); // adds the canvas to the body element; or appendChild
-        } else if (toggle === 'hide') {
-            canvas.remove(); // or container.removeChild(canvas)
+        },
+        hide: () => {
+            container.innerHTML = ''
         }
-        console.log(container.innerHTML);
-    }
-
-    // Error
-    else {
-        console.error('UNKNOWN Method ' + method)
+    },
+    'append': { // options: appendChild/removeChild, append/remove, insertBefore, replaceChildren, insertAdjacentElement
+        name: 'append',
+        type: 'dom',
+        show: () => {
+            container.append(canvas)
+        }, // note appendChild on an already attached node moves it up.
+        hide: () => {
+            canvas.remove()
+        } // or container.removeChild(canvas) - but could throw error
     }
 }
 
@@ -126,21 +180,25 @@ function wait(ms) {
 }
 
 async function runStimMethods(){
-    for (const method of [...methods.dom, ...methods.canvas, ...methods.style]) {
-        resetStimStyle(method)
-        for(const toggle of ['show','hide']){
-            if(toggle === 'show'){
-                // hide first to set the state we want off (style methods), then make sure stim is drawn on canvas, then wait.
-                if(!methods.dom.includes(method)) loadCanvas()
-                toggleStim(method, 'hide');
-                if(!methods.canvas.includes(method)) drawStimRect()
-            }
-            await wait(1000);   // a timer is created only when the loop reaches this line
-            toggleStim(method, toggle);
-            console.log({method, toggle});
+    for (const method of Object.values(displayMethods)) { //https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Object/values#description
+        if(!(method.type && method.show && method.hide &&
+            typeof method.show === 'function' && typeof method.hide === 'function')) {
+            // TODO CSS.supports(property, value) and record which methods were skipped on that browser. Adding a property field to each entry makes this easy.
+            throw 'Incomplete method entry'
         }
+        console.log(method.name)
+        resetCanvas(method.name)
+        method.hide() // hide under same show method to prep
+        if(method.type !== 'canvas') drawStimRect() // draw stim if remains hidden consider a prepare() method on displayMethods instead
+        // reset → prepare → gap → show → duration → hide → gap.
+        await wait(1000); // consider a requestAnimationFrame draw to ensure hide has gone through
+        method.show()
+        await wait(1000);
+        method.hide()
+        await wait(1000);
     }
 }
 
-runStimMethods().then(()=> {console.log('finished')})
+// RUN ----------
+runStimMethods().catch(()=>{console.error('error')}).then(()=> {console.log('finished')})
 // drawStimRect()
