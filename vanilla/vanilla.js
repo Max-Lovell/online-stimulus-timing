@@ -14,12 +14,12 @@ window.onresize = (e) => {
 }
 
 // Drawing stim -------
-function drawStimRect(colour='white'){
-    ctx.fillStyle = colour;
-    const {width, height} = canvas;
+function drawStimRect(colour='white', drawCtx=ctx){
+    drawCtx.fillStyle = colour;
+    const {width, height} = drawCtx.canvas;
     const stimSize = Math.round(Math.min(width, height)*.2); // 20% of canvas' smallest dimension, rounded to avoid aliasing
-    ctx.fillRect(0, 0, stimSize, stimSize);
-    ctx.fillRect(width-stimSize, height-stimSize, stimSize, stimSize);
+    drawCtx.fillRect(0, 0, stimSize, stimSize);
+    drawCtx.fillRect(width-stimSize, height-stimSize, stimSize, stimSize);
 }
 
 function resizeCanvas(){
@@ -148,14 +148,15 @@ const displayMethods = {
     },
 
     // DOM
-    'html': { // raw HTML insert
+    'html': { // raw HTML insert - jsPsych method
         name: 'html', // Options: innerHTML, insertAdjacentHTML
         type: 'dom',
         show: () => {
-            container.innerHTML = '<canvas id="canvas"></canvas>'
-            const newCanvas = document.getElementById('canvas');
+            // TODO: check jsPsych actually handles the draw after insert during trial start.
+            container.innerHTML = `<canvas id="newCanvas" class="canvas" width="${canvas.width}" height="${canvas.height}"></canvas>`
+            const newCanvas = document.getElementById('newCanvas');
             const newCtx = newCanvas.getContext('2d'); // TODO: consider { alpha: true/false }
-            drawStimRect()
+            drawStimRect('white', newCtx);
         },
         hide: () => {
             container.innerHTML = ''
