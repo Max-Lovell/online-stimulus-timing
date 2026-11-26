@@ -7,6 +7,7 @@
 //  ordering, repetitions, jitter, timestamps, on method per page load, etc.
 //  run validations from runStimMethods(), and consider moving to typeScript.
 
+// Save order to sessionStorage and use location.replace or reload() to move between blocks
 
 // Get CANVAS
 const container = document.getElementById('container');
@@ -176,6 +177,7 @@ const displayMethods = {
     }
 }
 
+// SCHEDULER
 function wait(ms) {
     return new Promise(function executor(resolve, reject) {
         setTimeout(resolve, ms);
@@ -188,7 +190,7 @@ async function runStimMethods(){
         if(!(method.type && method.show && method.hide &&
             typeof method.show === 'function' && typeof method.hide === 'function')) {
             // TODO CSS.supports(property, value) and record which methods were skipped on that browser. Adding a property field to each entry makes this easy.
-            throw 'Incomplete method entry'
+            throw Error('Incomplete method entry')
         }
         console.log(method.name)
         resetCanvas(method.name)
@@ -204,5 +206,5 @@ async function runStimMethods(){
 }
 
 // RUN ----------
-runStimMethods().catch(()=>{console.error('error')}).then(()=> {console.log('finished')})
+runStimMethods().then(()=> {console.log('finished')}).catch((e)=>{console.error(e)})
 // drawStimRect()
