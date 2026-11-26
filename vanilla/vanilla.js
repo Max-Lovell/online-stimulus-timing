@@ -180,6 +180,7 @@ function wait(ms) {
 }
 
 async function runStimMethods(){
+    const waitTime = 500
     for (const method of Object.values(displayMethods)) { //https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Object/values#description
         if(!(method.type && method.show && method.hide &&
             typeof method.show === 'function' && typeof method.hide === 'function')) {
@@ -191,11 +192,11 @@ async function runStimMethods(){
         method.hide() // hide under same show method to prep
         if(method.type !== 'canvas') drawStimRect() // draw stim if remains hidden consider a prepare() method on displayMethods instead
         // reset → prepare → gap → show → duration → hide → gap.
-        await wait(1000); // consider a requestAnimationFrame draw to ensure hide has gone through
+        await wait(waitTime); // consider a requestAnimationFrame draw to ensure hide has gone through
         method.show()
-        await wait(1000);
+        await wait(waitTime);
         method.hide()
-        await wait(1000);
+        await wait(waitTime);
     }
 }
 
