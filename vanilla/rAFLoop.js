@@ -3,9 +3,9 @@
 function rAFLoop({
                      duration, // number
                      show, // function, optional - can use onFrame instead
-                     onFrame, // function, optional - can use show() and hide() instead. returns {frameNumber, timestamp, elapsed, hide}.
+                     onFrame, // function, optional - can use show() and hide() instead. receives {frameNumber, timestamp, elapsed, hide}.
                      hide, // function, optional - can use onFrame instead
-                     onFinish, // function, optional, can just use show() and hide(). returns `result = getResult()`.
+                     onFinish, // function, optional, can just use show() and hide(). receives `result = getResult()`.
                      frameIntervalEstimate, // this is either a number or a function, and gets passed a interval for the receiver to use
                      guardFrames = 1.5, // 1.5 to always round nearest whole frame
                     }={}) {
@@ -38,7 +38,7 @@ function rAFLoop({
         animationId = null;
     }
 
-    function getResult(reason){ // idempotent - safe to call any time, returns result of first call
+    function getResult(reason, error=null){ // idempotent - safe to call any time, returns result of first call
         if(!result) {
             result = {
                 earliestOnset: timestamps[1] ?? null,
@@ -46,71 +46,102 @@ function rAFLoop({
                 framesDrawn: frameNumber,
                 timestamps,
                 callbackEndTimes,
-                reason
+                reason,
+                error
             }
         }
         return result;
     }
 
-    function endAnimation(endTime){
-        if(finished) return
+    function handleError(error){
+        // Handle error
+        console.error(error)
+        if(result) return result
         stop()
-        // Push final frame - this is the frame where the stimulus was actually hidden
-        timestamps.push(endTime) // note don't increment frameNumber, which is framesDrawn, not refreshes.
-        // setTimeout allows endTrial to leave render cycle and run on normal event loop after current frame's paint, incase causes overrun
-        // Don't swap for queueMicrotask or promise - Microtasks run straight after each rAF callback, while the frame is still being prepared and before it's painted. Only a new task moves onFinish out of the frame.
-        const data = getResult('duration')
+        // note callbackEndTimes[] may be one shorter than timestamps[]
+        if(callbackEndTimes.length < timestamps.length) callbackEndTimes.push(performance.now())
+        const data = getResult('error', String(error))    // e.g. "TypeError: onFrame is not a function"
         setTimeout(() => {
             if(onFinish) onFinish(data)
         }, 0)
-        callbackEndTimes.push(performance.now())
+        return data
+    }
+
+    function endAnimation(endTime){
+        if(finished) return
+        try {
+            stop()
+            // Push final frame - this is the frame where the stimulus was actually hidden
+            timestamps.push(endTime) // note don't increment frameNumber, which is framesDrawn, not refreshes.
+            // setTimeout allows endTrial to leave render cycle and run on normal event loop after current frame's paint, incase causes overrun
+            // Don't swap for queueMicrotask or promise - Microtasks run straight after each rAF callback, while the frame is still being prepared and before it's painted. Only a new task moves onFinish out of the frame.
+            const data = getResult('duration')
+            setTimeout(() => {
+                if(onFinish) onFinish(data)
+            }, 0)
+            callbackEndTimes.push(performance.now())
+        } catch(e) {
+            handleError(e)
+        }
+
     }
 
     // Animation frames and callbacks
     function tick(timestamp){ // Note this timestamp should be roughly the start of the render cycle's frame creation
         if(finished) return
+        try {
+            // Record progress
+            timestamps.push(timestamp);
+            frameNumber = timestamps.length-1;
 
-        // Record progress
-        timestamps.push(timestamp);
-        frameNumber = timestamps.length-1;
+            // Inter-Frame-Interval
+            const interFrameInterval = timestamp-timestamps[timestamps.length-2]
+            const predictedFrameInterval = getFrameInterval(interFrameInterval);
+            if(typeof predictedFrameInterval !== 'number' || !(predictedFrameInterval > 0)) throw Error('predictedFrameInterval must be a positive number')
 
-        // Inter-Frame-Interval
-        const interFrameInterval = timestamp-timestamps[timestamps.length-2]
-        const predictedFrameInterval = getFrameInterval(interFrameInterval);
-        if(typeof predictedFrameInterval !== 'number' || !(predictedFrameInterval > 0)) throw Error('predictedFrameInterval must be a positive number')
+            // Calculate if final frame
+            const earliestOnset = timestamps[1] // frameNumber 1 = earliest actual onset (model) startTime.
+            const timeOnScreen = timestamp - earliestOnset
+            const timeAtNextFrameRounded = timeOnScreen + (predictedFrameInterval * guardFrames)
+            const keepShowing = timeAtNextFrameRounded < duration
 
-        // Calculate if final frame
-        const earliestOnset = timestamps[1] // frameNumber 1 = earliest actual onset (model) startTime.
-        const timeOnScreen = timestamp - earliestOnset
-        const timeAtNextFrameRounded = timeOnScreen + (predictedFrameInterval * guardFrames)
-        const keepShowing = timeAtNextFrameRounded < duration
+            // Elapsed counts from the first callback so it advances every frame; with steady frames it equals the on-screen time of this frame's content.
+            const elapsedAnimationTime = timestamp - timestamps[0]
+            // Call the frame - optional hide if they want to do it using onFrame
+            if(onFrame) onFrame({frameNumber, timestamp, elapsed: elapsedAnimationTime, hide: !keepShowing})
+            if(finished) return // NOTE: if onFrame calls cancel() on the hide frame, hide() still runs afterwards without this guard
 
-        // Elapsed counts from the first callback so it advances every frame; with steady frames it equals the on-screen time of this frame's content.
-        const elapsedAnimationTime = timestamp - timestamps[0]
-        // Call the frame - optional hide if they want to do it using onFrame
-        if(onFrame) onFrame({frameNumber, timestamp, elapsed: elapsedAnimationTime, hide: !keepShowing})
-        // end or redraw
-        if (keepShowing) {
-            animationId = requestAnimationFrame(tick)
-        } else {
-            if(hide) hide()
-            animationId = requestAnimationFrame(endAnimation);   // clear becomes visible when this fires
+            // end or redraw
+            if (keepShowing) {
+                animationId = requestAnimationFrame(tick)
+            } else {
+                if(hide) hide()
+                animationId = requestAnimationFrame(endAnimation);   // clear becomes visible when this fires
+            }
+
+            callbackEndTimes.push(performance.now())
+            // consider putting line above before if(finished) return to keep aligned, although technically this is the end of the callback after hide()
+        } catch(e){
+            handleError(e)
         }
 
-        callbackEndTimes.push(performance.now())
     }
 
     function startAnimation(preDrawTimestamp){
-        // Separate start animation call as interFrameInterval and earliestOnset can't be derived until next frame
         if(finished) return
-        if(show) show()
-        // frameNumber = 0 = 'show called, not yet on screen'
-        timestamps.push(preDrawTimestamp);
-        frameNumber = timestamps.length-1;
-        const elapsed = preDrawTimestamp - timestamps[0] // Necessarily 0...
-        if(onFrame) onFrame({frameNumber, timestamp: preDrawTimestamp, elapsed, hide: false})
-        animationId = requestAnimationFrame(tick)
-        callbackEndTimes.push(performance.now())
+        try {
+            // Separate start animation call as interFrameInterval and earliestOnset can't be derived until next frame
+            if(show) show()
+            timestamps.push(preDrawTimestamp);
+            frameNumber = timestamps.length-1; // frameNumber = 0 = 'show called, not yet on screen'
+
+            const elapsed = preDrawTimestamp - timestamps[0] // Necessarily 0...
+            if(onFrame) onFrame({frameNumber, timestamp: preDrawTimestamp, elapsed, hide: false})
+            animationId = requestAnimationFrame(tick)
+            callbackEndTimes.push(performance.now())
+        } catch(e){
+            handleError(e)
+        }
     }
 
     animationId = requestAnimationFrame(startAnimation)
