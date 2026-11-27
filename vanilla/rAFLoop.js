@@ -11,7 +11,10 @@ function rAFLoop({
                     }={}) {
     if(typeof duration !== 'number' || !(duration > 0)) throw Error('duration must be a positive number') // note !(duration > 0) rejects NaN
 
-    let finished = false, frameNumber = 0, animationId = null, result;
+
+
+
+    let finished = false, frameNumber = 0, animationId = null, result, cancelled = false;
     const timestamps = [], frameIntervals = [], callbackEndTimes = [];
 
     // Frame intervals
@@ -53,6 +56,12 @@ function rAFLoop({
         return result;
     }
 
+    function notifyFinish(data) {
+        setTimeout(() => {
+            if (onFinish && !cancelled) onFinish(data)
+        }, 0)
+    }
+
     function handleError(error){
         // Handle error
         console.error(error)
@@ -60,10 +69,8 @@ function rAFLoop({
         stop()
         // note callbackEndTimes[] may be one shorter than timestamps[]
         if(callbackEndTimes.length < timestamps.length) callbackEndTimes.push(performance.now())
-        const data = getResult('error', String(error))    // e.g. "TypeError: onFrame is not a function"
-        setTimeout(() => {
-            if(onFinish) onFinish(data)
-        }, 0)
+        const data = getResult('error', String(error)) // a deliberately strange throw could rethrow - but ignoring.
+        notifyFinish(data)
         return data
     }
 
@@ -76,9 +83,7 @@ function rAFLoop({
             // setTimeout allows endTrial to leave render cycle and run on normal event loop after current frame's paint, incase causes overrun
             // Don't swap for queueMicrotask or promise - Microtasks run straight after each rAF callback, while the frame is still being prepared and before it's painted. Only a new task moves onFinish out of the frame.
             const data = getResult('duration')
-            setTimeout(() => {
-                if(onFinish) onFinish(data)
-            }, 0)
+            notifyFinish(data)
             callbackEndTimes.push(performance.now())
         } catch(e) {
             handleError(e)
@@ -148,6 +153,7 @@ function rAFLoop({
 
     // Return cancel function
     function cancel() {
+        cancelled = true
         stop()
         return getResult('cancelled')
         // consider calling onFinish(result) here
