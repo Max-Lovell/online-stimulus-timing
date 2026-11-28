@@ -22,7 +22,8 @@ function rAFLoop({
         const sortedIntervals = []
         for(let i=0; i<frameIntervals.length; i++) sortedIntervals[i] = frameIntervals[i];
         sortedIntervals.sort((a, b) => a - b); // sort frame times
-        return sortedIntervals[Math.floor(sortedIntervals.length/2)];
+        // Pick lower of two values median as delays extend frame times
+        return sortedIntervals[Math.floor((sortedIntervals.length-1)/2)];
     }
 
     function getFrameInterval(interval){
