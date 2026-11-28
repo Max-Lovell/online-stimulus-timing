@@ -1,27 +1,5 @@
 // TODO: consider generalising to use requestVideoFrameCallback for videos too?
-// noinspection DuplicatedCode
-
-/**
- * Shows a stimulus for a duration, timed to the display's frames with requestAnimationFrame.
- * Options are checked before anything is shown; unknown option names throw.
- *
- * @param {Object} options
- * @param {number} options.duration - ms, > 0. Infinity = until end() or cancel().
- * @param {function(): void} [options.show] - called in the first frame callback. Can use onFrame instead.
- * @param {function(FrameInfo): void} [options.onFrame] - called in every frame callback except the offset frame.
- * @param {function(): void} [options.hide] - called in the hide frame callback. Can use onFrame instead.
- * @param {function(RAFLoopResult): void} [options.onFinish] - called after 'duration', 'ended' or 'error'. Not called after cancel(), which returns the result instead.
- * @param {number|function(number): number} [options.frameIntervalEstimate] - ms, or a function given the latest frame interval that returns ms.
- *     Recommended. Without it, the lower median of this trial's intervals is used.
- * @param {'nearest'|'up'|'down'} [options.rounding='nearest'] - 'up' = never shorter, 'down' = never longer, both within tolerance.
- *     With steady frames of interval F, frames shown = ceil(duration / F - 0.5) for 'nearest'.
- * @param {number} [options.tolerance=1] - ms. How far short ('up') or over ('down') of duration is accepted. Ignored for 'nearest'.
- *     Keep it well under half a frame (8.3 ms at 60 Hz).
- * @returns {{cancel: function(): RAFLoopResult, end: function(): void}}
- *     cancel(): stop now and take over; returns the result. end(): hide on the next frame, then finish as normal with reason 'ended'.
- * @throws {TypeError} if an option is unknown or invalid.
- */
-
+// TODO: Allow to be chained to another trial - atm would leave a 2 frame blank between them
 /**
  * @typedef {Object} FrameInfo
  * @property {number} frameNumber - 0 = show() called, not yet on screen
@@ -40,6 +18,29 @@
  * @property {number[]} callbackEndTimes - performance.now() at the end of each callback, same index as timestamps. Excludes rendering
  * @property {boolean} hidden - hide() has run. hidden && endTime === null: hide() ran but its offset frame wasn't timestamped
  * @property {string|null} error
+ */
+
+/**
+ * Shows a stimulus for a duration, timed to the display's frames with requestAnimationFrame.
+ * Options are checked before anything is shown; unknown option names throw.
+ *
+ * @param {Object} options
+ * @param {number} options.duration - ms, > 0. Infinity = until end() or cancel().
+ * @param {function(): void} [options.show] - called in the first frame callback. Can use onFrame instead.
+ * @param {function(FrameInfo): void} [options.onFrame] - called in every frame callback except the offset frame.
+ * @param {function(): void} [options.hide] - called in the hide frame callback. Can use onFrame instead.
+ * @param {function(RAFLoopResult): void} [options.onFinish] - called after 'duration', 'ended' or 'error'. Not called after cancel(), which returns the result instead.
+ * @param {number|function(number): number} [options.frameIntervalEstimate] - ms, or a function given the latest frame interval that returns ms.
+ *     Recommended. Without it, the lower median of this trial's intervals is used.
+ *     measure the estimate on the participant's machine, e.g. the median of rAF intervals in a short pre-block, and never hard-code 1000/60.
+ * @param {'nearest'|'up'|'down'} [options.rounding='nearest'] - 'up' = never shorter, 'down' = never longer, both within tolerance.
+ *     With steady frames of interval F, frames shown = ceil(duration / F - 0.5) for 'nearest'.
+ * @param {number} [options.tolerance=1] - ms. How far short ('up') or over ('down') of duration is accepted. Ignored for 'nearest'.
+ *     Keep it well under half a frame (8.3 ms at 60 Hz).
+ * @returns {{cancel: function(): RAFLoopResult, end: function(): void}}
+ *     cancel(): stop now and take over; returns the result. end(): hide on the next frame, then finish as normal with reason 'ended'.
+ *     call cancel()/end() from onFrame or outside the loop, not from inside show()/hide()
+ * @throws {TypeError} if an option is unknown or invalid.
  */
 
 function rAFLoop(options = {}) {
@@ -157,6 +158,7 @@ function rAFLoop(options = {}) {
     // Separate start animation call as interFrameInterval and earliestOnset can't be derived until next frame
     const startAnimation = frame(timestamp => {
         if(show) show()
+        if(finished) return
         if(onFrame) onFrame({frameNumber, timestamp, elapsed: 0, hide: false})
         if(finished) return // cancel() was called inside onFrame
         frameNumber++ // frameNumber 0 = 'show called, not yet on screen'
@@ -166,7 +168,7 @@ function rAFLoop(options = {}) {
     // After first call, decide to keep running or hide stim based on timestamp.
     const tick = frame(timestamp => {
         const predictedFrameInterval = getFrameInterval(timestamp - timestamps[timestamps.length - 2])
-        if(!isPositiveNumber(predictedFrameInterval)) throw Error('frameIntervalEstimate must give a positive number')
+        if(!(isPositiveNumber(predictedFrameInterval) && Number.isFinite(predictedFrameInterval))) throw Error('frameIntervalEstimate must give a positive number')
 
         //Show for another frame if waiting lands closer to duration (with stopFramesAhead = 1.5),
         const timeOnScreen = timestamp - timestamps[1] // frame 1 = earliest onset (model)
@@ -185,6 +187,7 @@ function rAFLoop(options = {}) {
         } else { // hide stim and record next callback time
             endReason = durationReached ? 'duration' : 'ended'
             if(hide) hide()
+            if(finished) return
             hidden = true
             animationId = requestAnimationFrame(endAnimation) // the hide is on screen when this fires (model)
         }
