@@ -1,6 +1,47 @@
 // TODO: consider generalising to use requestVideoFrameCallback for videos too?
 // noinspection DuplicatedCode
 
+/**
+ * Shows a stimulus for a duration, timed to the display's frames with requestAnimationFrame.
+ * Options are checked before anything is shown; unknown option names throw.
+ *
+ * @param {Object} options
+ * @param {number} options.duration - ms, > 0. Infinity = until end() or cancel().
+ * @param {function(): void} [options.show] - called in the first frame callback. Can use onFrame instead.
+ * @param {function(FrameInfo): void} [options.onFrame] - called in every frame callback except the offset frame.
+ * @param {function(): void} [options.hide] - called in the hide frame callback. Can use onFrame instead.
+ * @param {function(RAFLoopResult): void} [options.onFinish] - called after 'duration', 'ended' or 'error'. Not called after cancel(), which returns the result instead.
+ * @param {number|function(number): number} [options.frameIntervalEstimate] - ms, or a function given the latest frame interval that returns ms.
+ *     Recommended. Without it, the lower median of this trial's intervals is used.
+ * @param {'nearest'|'up'|'down'} [options.rounding='nearest'] - 'up' = never shorter, 'down' = never longer, both within tolerance.
+ *     With steady frames of interval F, frames shown = ceil(duration / F - 0.5) for 'nearest'.
+ * @param {number} [options.tolerance=1] - ms. How far short ('up') or over ('down') of duration is accepted. Ignored for 'nearest'.
+ *     Keep it well under half a frame (8.3 ms at 60 Hz).
+ * @returns {{cancel: function(): RAFLoopResult, end: function(): void}}
+ *     cancel(): stop now and take over; returns the result. end(): hide on the next frame, then finish as normal with reason 'ended'.
+ * @throws {TypeError} if an option is unknown or invalid.
+ */
+
+/**
+ * @typedef {Object} FrameInfo
+ * @property {number} frameNumber - 0 = show() called, not yet on screen
+ * @property {number} timestamp - this frame's rAF timestamp
+ * @property {number} elapsed - ms since frame 0
+ * @property {boolean} hide - true in the frame where hide() is about to run
+ */
+
+/**
+ * @typedef {Object} RAFLoopResult
+ * @property {'duration'|'ended'|'cancelled'|'error'} reason
+ * @property {number|null} earliestOnset - first frame timestamp after show() (model)
+ * @property {number|null} endTime - first frame timestamp after hide() (model). null unless the offset frame was timestamped (cancel, error)
+ * @property {number} framesDrawn - frames the loop committed to showing
+ * @property {number[]} timestamps - raw rAF timestamps: [show frame, tick frames..., offset frame]
+ * @property {number[]} callbackEndTimes - performance.now() at the end of each callback, same index as timestamps. Excludes rendering
+ * @property {boolean} hidden - hide() has run. hidden && endTime === null: hide() ran but its offset frame wasn't timestamped
+ * @property {string|null} error
+ */
+
 function rAFLoop(options = {}) {
 
     // INPUT VALIDATION ----- throws to caller
