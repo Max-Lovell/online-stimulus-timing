@@ -1,7 +1,7 @@
 // TODO: consider generalising to use requestVideoFrameCallback for videos too?
 // noinspection DuplicatedCode
 
-function rAFLoop({
+function rAFLoop(options = {
                      duration, // number, ms. use end() to end trial if using Infinity.
                      show, // function, optional - can use onFrame instead
                      onFrame, // function, optional - can use show() and hide() instead. receives {frameNumber, timestamp, elapsed, hide}.
@@ -12,7 +12,15 @@ function rAFLoop({
                      tolerance = 1 // ms: how far short ('up') or over ('down', negated in this case) of duration is accepted. Ignored (0) for 'nearest'.
                     }={}) {
 
-    // INPUT TYPE VALIDATION ----- throws to caller
+    // INPUT VALIDATION ----- throws to caller
+    // ARGS
+    const knownOptions = ['duration', 'show', 'onFrame', 'hide', 'onFinish', 'frameIntervalEstimate', 'rounding', 'tolerance']
+    if(typeof options !== 'object' || options === null) throw TypeError('rAFLoop takes one options object, e.g. rAFLoop({duration: 50, show, hide})')
+    const unknown = Object.keys(options).filter(key => !knownOptions.includes(key))
+    if(unknown.length) throw TypeError(`rAFLoop: unknown option ${unknown.join(', ')}. Options are: ${knownOptions.join(', ')}`)
+    const {duration, show, onFrame, hide, onFinish, frameIntervalEstimate, rounding = 'nearest', tolerance = 1 } = options
+
+    // TYPES
     const isOptionalFunction = f => f === undefined || typeof f === 'function'
     const isPositiveNumber = x => typeof x === 'number' && x > 0 // x > 0 rejects NaN
     // TODO: default duration to Infinity? if(duration === undefined) duration = Infinity
@@ -23,6 +31,7 @@ function rAFLoop({
     }
     if(!['down','nearest','up'].includes(rounding)) throw TypeError("rounding must be one of: 'nearest' (recommended default), 'down', or 'up'")
     if(!(Number.isFinite(tolerance) && tolerance >= 0)) throw TypeError('tolerance must be a positive number')
+
 
     // GLOBALS -----
     let finished = false, frameNumber = 0, animationId = null, result = null,
