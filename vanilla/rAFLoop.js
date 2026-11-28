@@ -1,16 +1,7 @@
 // TODO: consider generalising to use requestVideoFrameCallback for videos too?
 // noinspection DuplicatedCode
 
-function rAFLoop(options = {
-                     duration, // number, ms. use end() to end trial if using Infinity.
-                     show, // function, optional - can use onFrame instead
-                     onFrame, // function, optional - can use show() and hide() instead. receives {frameNumber, timestamp, elapsed, hide}.
-                     hide, // function, optional - can use onFrame instead
-                     onFinish, // function, optional, can just use show() and hide(). receives `result = getResult()`. not called after cancel()
-                     frameIntervalEstimate, // this is either a number or a function which receives the previous inter-frame-interval
-                     rounding = 'nearest', // 'nearest' (recommended, default) 'up' never shorter, 'down' never longer, both within tolerance.
-                     tolerance = 1 // ms: how far short ('up') or over ('down', negated in this case) of duration is accepted. Ignored (0) for 'nearest'.
-                    }={}) {
+function rAFLoop(options = {}) {
 
     // INPUT VALIDATION ----- throws to caller
     // ARGS
@@ -18,7 +9,16 @@ function rAFLoop(options = {
     if(typeof options !== 'object' || options === null) throw TypeError('rAFLoop takes one options object, e.g. rAFLoop({duration: 50, show, hide})')
     const unknown = Object.keys(options).filter(key => !knownOptions.includes(key))
     if(unknown.length) throw TypeError(`rAFLoop: unknown option ${unknown.join(', ')}. Options are: ${knownOptions.join(', ')}`)
-    const {duration, show, onFrame, hide, onFinish, frameIntervalEstimate, rounding = 'nearest', tolerance = 1 } = options
+    const {
+        duration, // number, ms. use end() to end trial if using Infinity.
+        show, // function, optional - can use onFrame instead
+        onFrame, // function, optional - can use show() and hide() instead. receives {frameNumber, timestamp, elapsed, hide}.
+        hide, // function, optional - can use onFrame instead
+        onFinish, // function, optional, can just use show() and hide(). receives `result = getResult()`. not called after cancel()
+        frameIntervalEstimate, // this is either a number or a function which receives the previous inter-frame-interval
+        rounding = 'nearest', // 'nearest' (recommended, default) 'up' never shorter, 'down' never longer, both within tolerance.
+        tolerance = 1 // ms: how far short ('up') or over ('down', negated in this case) of duration is accepted. Ignored (0) for 'nearest'.
+    } = options
 
     // TYPES
     const isOptionalFunction = f => f === undefined || typeof f === 'function'
@@ -30,7 +30,7 @@ function rAFLoop(options = {
         if(!isOptionalFunction(f)) throw TypeError(`${name} must be a function`)
     }
     if(!['down','nearest','up'].includes(rounding)) throw TypeError("rounding must be one of: 'nearest' (recommended default), 'down', or 'up'")
-    if(!(Number.isFinite(tolerance) && tolerance >= 0)) throw TypeError('tolerance must be a positive number')
+    if(!(Number.isFinite(tolerance) && tolerance >= 0)) throw TypeError('tolerance must be a number ≥ 0 (ms)')
 
 
     // GLOBALS -----
