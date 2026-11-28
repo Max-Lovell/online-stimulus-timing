@@ -9,9 +9,20 @@ function rAFLoop({
                      frameIntervalEstimate, // this is either a number or a function, and gets passed a interval for the receiver to use
                      guardFrames = 1.5, // 1.5 to always round nearest whole frame
                     }={}) {
-    if(typeof duration !== 'number' || !(duration > 0)) throw Error('duration must be a positive number') // note !(duration > 0) rejects NaN
-
-
+    // INPUT TYPE VALIDATION
+    function validateInputs(){
+        // note duration is allowed to be Infinite, and !(duration > 0) rejects NaN
+        if(typeof duration !== 'number' || !(duration > 0)) throw Error('duration must be a positive number or Infinite')
+        if(show && typeof show !== 'function') throw Error('show must be a function')
+        if(onFrame && typeof onFrame !== 'function') throw Error('onFrame must be a function')
+        if(hide && typeof hide !== 'function') throw Error('hide must be a function')
+        if(onFinish && typeof onFinish !== 'function') throw Error('onFinish must be a function')
+        if(frameIntervalEstimate !== undefined && !(Number.isFinite(frameIntervalEstimate) && frameIntervalEstimate > 0) && typeof frameIntervalEstimate !== 'function')
+            throw Error('frameIntervalEstimate must be a positive number or function')
+        // TODO: consider only allowing values between 1-2
+        if(!(Number.isFinite(guardFrames) && guardFrames > 0)) throw Error('guardFrames must be a positive number')
+    }
+    validateInputs()
 
 
     let finished = false, frameNumber = 0, animationId = null, result, cancelled = false;
