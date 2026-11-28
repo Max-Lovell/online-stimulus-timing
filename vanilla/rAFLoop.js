@@ -42,8 +42,7 @@ function rAFLoop({
         if(typeof frameIntervalEstimate === 'function') return frameIntervalEstimate(interval)
         else if(typeof frameIntervalEstimate === 'number') return frameIntervalEstimate
         // else return median
-        frameIntervals.push(interval); // keep here as unused otherwise
-        return median(); // or just grab the global version?
+        return median(interval); // or just grab the global version?
     }
 
     // End
