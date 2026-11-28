@@ -28,13 +28,14 @@ function rAFLoop({
     let finished = false, frameNumber = 0, animationId = null, result, cancelled = false;
     const timestamps = [], frameIntervals = [], callbackEndTimes = [];
 
-    // Frame intervals
-    function median(){
-        const sortedIntervals = []
-        for(let i=0; i<frameIntervals.length; i++) sortedIntervals[i] = frameIntervals[i];
-        sortedIntervals.sort((a, b) => a - b); // sort frame times
-        // Pick lower of two values median as delays extend frame times
-        return sortedIntervals[Math.floor((sortedIntervals.length-1)/2)];
+    // INTERVALS
+    function median(interval){
+        // TODO: Fill with the pre-block intervals if number (how many?) before the first tick - needs separate arg?
+        // insert into array
+        const index = frameIntervals.findIndex((ifi) => ifi>interval)
+        index === -1 ? frameIntervals.push(interval) : frameIntervals.splice(index, 0, interval) // -1 on splice adds as second to last
+        // Pick lower of two values median as missed frames only extend times
+        return frameIntervals[Math.floor((frameIntervals.length-1)/2)];
     }
 
     function getFrameInterval(interval){
