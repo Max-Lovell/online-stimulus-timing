@@ -8,28 +8,29 @@ function rAFLoop({
                      hide, // function, optional - can use onFrame instead
                      onFinish, // function, optional, can just use show() and hide(). receives `result = getResult()`. not called after cancel()
                      frameIntervalEstimate, // this is either a number or a function which receives the previous inter-frame-interval
-                     guardFrames = 1.5, // 1 = never shorter than duration, 1.5 = nearest frame, 2 = never longer
-                        // TODO: 'guardFrames' could be renamed to ... 'stopFramesAhead'?
-                     // TODO: clearer dx on guardFrames might be adding 1 to it later so e.g. 0.5 = current 1.5 = half frame ahead
+                     rounding = 'nearest', // 'nearest' (recommended, default) 'up' never shorter, 'down' never longer, both within tolerance.
+                     tolerance = 1 // ms: how far short ('up') or over ('down', negated in this case) of duration is accepted. Ignored (0) for 'nearest'.
                     }={}) {
 
     // INPUT TYPE VALIDATION ----- throws to caller
     const isOptionalFunction = f => f === undefined || typeof f === 'function'
     const isPositiveNumber = x => typeof x === 'number' && x > 0 // x > 0 rejects NaN
-    // if(duration === undefined) duration = Infinity
+    // TODO: default duration to Infinity? if(duration === undefined) duration = Infinity
     if(!isPositiveNumber(duration)) throw TypeError('duration must be a positive number or Infinity')
-    if(!(typeof guardFrames === 'number' && guardFrames >= 1 && guardFrames <= 2)) throw RangeError('guardFrames must be between 1 and 2')
     if(!(isOptionalFunction(frameIntervalEstimate) || (Number.isFinite(frameIntervalEstimate) && frameIntervalEstimate > 0))) throw TypeError('frameIntervalEstimate must be a positive number or a function')
     for(const [name, f] of Object.entries({show, onFrame, hide, onFinish})) {
         if(!isOptionalFunction(f)) throw TypeError(`${name} must be a function`)
     }
-
+    if(!['down','nearest','up'].includes(rounding)) throw TypeError("rounding must be one of: 'nearest' (recommended default), 'down', or 'up'")
+    if(!(Number.isFinite(tolerance) && tolerance >= 0)) throw TypeError('tolerance must be a positive number')
 
     // GLOBALS -----
     let finished = false, frameNumber = 0, animationId = null, result = null,
         cancelled = false, hidden= false, endRequested = false,
         endReason = null, offsetTimestamp = null
     const timestamps = [], frameIntervals = [], callbackEndTimes = []
+    const stopFramesAhead = rounding === 'down' ? 2 : rounding === 'up' ? 1 : 1.5;
+    const toleranceOffset = rounding === 'down' ? -tolerance : rounding === 'up' ? tolerance : 0;
 
 
     // INTERVALS -----
@@ -63,7 +64,7 @@ function rAFLoop({
         if(!result) {
             result = {
                 earliestOnset: timestamps[1] ?? null,
-                endTime: offsetTimestamp, // null after cancel() as not ended properly
+                endTime: offsetTimestamp, // null unless the offset frame was timestamped (cancel, error)
                 framesDrawn: frameNumber,
                 timestamps,
                 callbackEndTimes, // Doesn't include rendering, just a performance.now() call at the end of the callback.
@@ -98,7 +99,7 @@ function rAFLoop({
                 finish('error', String(error)) // the stimulus is left as it is - the caller decides, via onFinish
             } finally {
                 // Note this can present a confusing order of events, but will run before the final onFinish(data) in finish() runs
-                if(callbackEndTimes.length < timestamps.length) callbackEndTimes.push(performance.now()) // skipped if stop() already pushed
+                callbackEndTimes.push(performance.now())
             }
         }
     }
@@ -117,10 +118,10 @@ function rAFLoop({
         const predictedFrameInterval = getFrameInterval(timestamp - timestamps[timestamps.length - 2])
         if(!isPositiveNumber(predictedFrameInterval)) throw Error('frameIntervalEstimate must give a positive number')
 
-        //Show for another frame if waiting lands closer to duration (with guardFrames = 1.5),
+        //Show for another frame if waiting lands closer to duration (with stopFramesAhead = 1.5),
         const timeOnScreen = timestamp - timestamps[1] // frame 1 = earliest onset (model)
-        //ceil(duration / F − x)
-        const durationReached = !(timeOnScreen + predictedFrameInterval * guardFrames < duration)
+        // So: frames shown = ceil(duration / IFI − (stopFramesAhead − 1))
+        const durationReached = !(timeOnScreen + predictedFrameInterval * stopFramesAhead + toleranceOffset < duration)
         const keepShowing = !durationReached && !endRequested
 
         // elapsed counts from frame 0 so it advances every frame, although draw on screen was at frame 1
@@ -146,7 +147,7 @@ function rAFLoop({
 
 
     // MANUAL END FUNCTIONS -----
-    // Stop now and hand control to the caller. hide() and onFinish() not called, endTime is added when callback returns
+    // Stop now and hand control to the caller. hide() and onFinish() not called, endTime is null
     // hidden exists to report if hide() has already run for this caller.
     function cancel() {
         cancelled = true
