@@ -10,17 +10,14 @@ function rAFLoop({
                      guardFrames = 1.5, // 1.5 to always round nearest whole frame
                     }={}) {
     // INPUT TYPE VALIDATION - throws to caller
-    function validateInputs(){
-        const isOptionalFunction = f => f === undefined || typeof f === 'function'
-        const isPositiveNumber = x => typeof x === 'number' && x > 0 // x > 0 rejects NaN
-        if(!isPositiveNumber(duration)) throw TypeError('duration must be a positive number or Infinity')
-        if(!(typeof guardFrames === 'number' && guardFrames >= 1 && guardFrames <= 2)) throw RangeError('guardFrames must be between 1 and 2')
-        if(!(isOptionalFunction(frameIntervalEstimate) || (Number.isFinite(frameIntervalEstimate) && frameIntervalEstimate > 0))) throw TypeError('frameIntervalEstimate must be a positive number or a function')
-        for(const [name, f] of Object.entries({show, onFrame, hide, onFinish})) {
-            if(!isOptionalFunction(f)) throw TypeError(`${name} must be a function`)
-        }
+    const isOptionalFunction = f => f === undefined || typeof f === 'function'
+    const isPositiveNumber = x => typeof x === 'number' && x > 0 // x > 0 rejects NaN
+    if(!isPositiveNumber(duration)) throw TypeError('duration must be a positive number or Infinity')
+    if(!(typeof guardFrames === 'number' && guardFrames >= 1 && guardFrames <= 2)) throw RangeError('guardFrames must be between 1 and 2')
+    if(!(isOptionalFunction(frameIntervalEstimate) || (Number.isFinite(frameIntervalEstimate) && frameIntervalEstimate > 0))) throw TypeError('frameIntervalEstimate must be a positive number or a function')
+    for(const [name, f] of Object.entries({show, onFrame, hide, onFinish})) {
+        if(!isOptionalFunction(f)) throw TypeError(`${name} must be a function`)
     }
-    validateInputs()
 
 
     // GLOBALS
