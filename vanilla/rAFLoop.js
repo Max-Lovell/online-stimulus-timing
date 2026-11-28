@@ -25,7 +25,8 @@ function rAFLoop({
     validateInputs()
 
 
-    let finished = false, frameNumber = 0, animationId = null, result, cancelled = false;
+    // GLOBALS
+    let finished = false, frameNumber = 0, animationId = null, result, cancelled = false, hidden= false;
     const timestamps = [], frameIntervals = [], callbackEndTimes = [];
 
     // INTERVALS
@@ -62,7 +63,8 @@ function rAFLoop({
                 timestamps,
                 callbackEndTimes,
                 reason,
-                error
+                error,
+                hidden
             }
         }
         return result;
@@ -133,6 +135,7 @@ function rAFLoop({
                 animationId = requestAnimationFrame(tick)
             } else {
                 if(hide) hide()
+                hidden = true
                 animationId = requestAnimationFrame(endAnimation);   // clear becomes visible when this fires
             }
 
