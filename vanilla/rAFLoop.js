@@ -109,7 +109,6 @@ function rAFLoop({
         try {
             // Record progress
             timestamps.push(timestamp);
-            frameNumber = timestamps.length-1;
 
             // Inter-Frame-Interval
             const interFrameInterval = timestamp-timestamps[timestamps.length-2]
@@ -130,6 +129,7 @@ function rAFLoop({
 
             // end or redraw
             if (keepShowing) {
+                frameNumber++ // counts callbacks. hide() frame is not a stimulus frame draw.
                 animationId = requestAnimationFrame(tick)
             } else {
                 if(hide) hide()
@@ -150,10 +150,10 @@ function rAFLoop({
             // Separate start animation call as interFrameInterval and earliestOnset can't be derived until next frame
             if(show) show()
             timestamps.push(preDrawTimestamp);
-            frameNumber = timestamps.length-1; // frameNumber = 0 = 'show called, not yet on screen'
 
             const elapsed = preDrawTimestamp - timestamps[0] // Necessarily 0...
             if(onFrame) onFrame({frameNumber, timestamp: preDrawTimestamp, elapsed, hide: false})
+            frameNumber++; // frameNumber = 0 = 'show called, not yet on screen'
             animationId = requestAnimationFrame(tick)
             callbackEndTimes.push(performance.now())
         } catch(e){
