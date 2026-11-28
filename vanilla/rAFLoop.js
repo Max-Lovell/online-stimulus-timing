@@ -9,18 +9,16 @@ function rAFLoop({
                      frameIntervalEstimate, // this is either a number or a function, and gets passed a interval for the receiver to use
                      guardFrames = 1.5, // 1.5 to always round nearest whole frame
                     }={}) {
-    // INPUT TYPE VALIDATION
+    // INPUT TYPE VALIDATION - throws to caller
     function validateInputs(){
-        // note duration is allowed to be Infinite, and !(duration > 0) rejects NaN
-        if(typeof duration !== 'number' || !(duration > 0)) throw Error('duration must be a positive number or Infinite')
-        if(show && typeof show !== 'function') throw Error('show must be a function')
-        if(onFrame && typeof onFrame !== 'function') throw Error('onFrame must be a function')
-        if(hide && typeof hide !== 'function') throw Error('hide must be a function')
-        if(onFinish && typeof onFinish !== 'function') throw Error('onFinish must be a function')
-        if(frameIntervalEstimate !== undefined && !(Number.isFinite(frameIntervalEstimate) && frameIntervalEstimate > 0) && typeof frameIntervalEstimate !== 'function')
-            throw Error('frameIntervalEstimate must be a positive number or function')
-        // TODO: consider only allowing values between 1-2
-        if(!(Number.isFinite(guardFrames) && guardFrames > 0)) throw Error('guardFrames must be a positive number')
+        const isOptionalFunction = f => f === undefined || typeof f === 'function'
+        const isPositiveNumber = x => typeof x === 'number' && x > 0 // x > 0 rejects NaN
+        if(!isPositiveNumber(duration)) throw TypeError('duration must be a positive number or Infinity')
+        if(!(typeof guardFrames === 'number' && guardFrames >= 1 && guardFrames <= 2)) throw RangeError('guardFrames must be between 1 and 2')
+        if(!(isOptionalFunction(frameIntervalEstimate) || (Number.isFinite(frameIntervalEstimate) && frameIntervalEstimate > 0))) throw TypeError('frameIntervalEstimate must be a positive number or a function')
+        for(const [name, f] of Object.entries({show, onFrame, hide, onFinish})) {
+            if(!isOptionalFunction(f)) throw TypeError(`${name} must be a function`)
+        }
     }
     validateInputs()
 
