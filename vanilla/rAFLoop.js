@@ -26,7 +26,7 @@ function rAFLoop({
 
 
     // GLOBALS -----
-    let finished = false, frameNumber = 0, animationId = null, result,
+    let finished = false, frameNumber = 0, animationId = null, result = null,
         cancelled = false, hidden= false, endRequested = false,
         endReason = null, offsetTimestamp = null
     const timestamps = [], frameIntervals = [], callbackEndTimes = []
@@ -119,6 +119,7 @@ function rAFLoop({
 
         //Show for another frame if waiting lands closer to duration (with guardFrames = 1.5),
         const timeOnScreen = timestamp - timestamps[1] // frame 1 = earliest onset (model)
+        //ceil(duration / F − x)
         const durationReached = !(timeOnScreen + predictedFrameInterval * guardFrames < duration)
         const keepShowing = !durationReached && !endRequested
 
